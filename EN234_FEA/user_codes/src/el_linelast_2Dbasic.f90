@@ -76,11 +76,11 @@ subroutine el_linelast_2dbasic(lmn, element_identifier, n_nodes, node_property_l
     x = reshape(element_coords,(/2,length_coord_array/2/))
 
     if (n_nodes == 3) n_points = 1
-    if (n_nodes == 6) n_points = 3
-    if (n_nodes == 4) n_points = 1
-    if (n_nodes == 10) n_points = 4
+    if (n_nodes == 6) n_points = 4
+    if (n_nodes == 4) n_points = 4
+!    if (n_nodes == 10) n_points = 4
     if (n_nodes == 8) n_points = 9
-    if (n_nodes == 20) n_points = 27
+!    if (n_nodes == 20) n_points = 27
 
     call initialize_integration_points(n_points, n_nodes, xi, w)
 
@@ -321,11 +321,11 @@ subroutine fieldvars_linelast_2dbasic(lmn, element_identifier, n_nodes, node_pro
     x = reshape(element_coords,(/2,length_coord_array/2/))
 
     if (n_nodes == 3) n_points = 1
-    if (n_nodes == 6) n_points = 3
-    if (n_nodes == 4) n_points = 1
-    if (n_nodes == 10) n_points = 4
+    if (n_nodes == 6) n_points = 4
+    if (n_nodes == 4) n_points = 4
+!    if (n_nodes == 10) n_points = 4
     if (n_nodes == 8) n_points = 9
-    if (n_nodes == 20) n_points = 27
+!    if (n_nodes == 20) n_points = 27
 
     call initialize_integration_points(n_points, n_nodes, xi, w)
 
@@ -334,10 +334,11 @@ subroutine fieldvars_linelast_2dbasic(lmn, element_identifier, n_nodes, node_pro
     D = 0.d0
     E = element_properties(1)
     xnu = element_properties(2)
+    !write(*,*) 'mat.prop.: ',E,';',xnu
     d44 = 0.5D0*E/(1+xnu) 
     d11 = (1.D0-xnu)*E/( (1+xnu)*(1-2.D0*xnu) )
     d12 = xnu*E/( (1+xnu)*(1-2.D0*xnu) )
-    D(1:3,1:3) = d12
+    D(1:2,1:2) = d12
     D(1,1) = d11
     D(2,2) = d11
     D(3,3) = d44
@@ -356,7 +357,9 @@ subroutine fieldvars_linelast_2dbasic(lmn, element_identifier, n_nodes, node_pro
 
         strain = matmul(B,dof_total)
         dstrain = matmul(B,dof_increment)
+        !write(*,*) 'e11 = ', strain(1) + dstrain(1)
         stress = matmul(D,strain+dstrain)
+        !write(*,*) 's11 = ', stress(1)
         s3 = xnu * (stress(1) + stress(2))
         p = sum(stress(1:2))/2.d0
         sdev = stress
