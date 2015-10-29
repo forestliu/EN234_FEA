@@ -16,6 +16,7 @@ subroutine user_print(n_steps)
   integer ::  status
   integer ::  n_state_vars_per_intpt                                         ! No. state variables per integration point
   real (prec) ::   vol_averaged_strain(6)                                    ! Volume averaged strain in an element
+  real (prec)  :: vol_averaged_stress(6)
   real (prec), allocatable ::   vol_averaged_state_variables(:)              ! Volume averaged state variables in an element
   real (prec) :: J_integral_value
 
@@ -29,44 +30,42 @@ subroutine user_print(n_steps)
 !
 !
 
-!   allocate(vol_averaged_state_variables(length_state_variable_array), stat=status)
-!
-!   if (status/=0) then
-!      write(IOW,*) ' Error in subroutine user_print'
-!      write(IOW,*) ' Unable to allocate memory for state variables '
-!      stop
-!   endif
-!
-!   lmn = int(user_print_parameters(1))     ! The element number
-!
-!   call compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_variables,length_state_variable_array, &
-!                                                       n_state_vars_per_intpt)
-!
-!
-!    if (TIME<1.d-12) then
-!      if (n_state_vars_per_intpt<6) then
-!        write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23'
-!      else
-!         write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23,s11,s22,s33,s12,s13,s23'
-!      endif
-!    endif
-!
-!   if (n_state_vars_per_intpt<6) then
-!      write(user_print_units(1),'(7(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6)
-!   else
-!      vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
-!      write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_state_variables(1:6)
-!   endif
+   allocate(vol_averaged_state_variables(length_state_variable_array), stat=status)
+
+   if (status/=0) then
+      write(IOW,*) ' Error in subroutine user_print'
+      write(IOW,*) ' Unable to allocate memory for state variables '
+      stop
+   endif
+
+   lmn = int(user_print_parameters(1))     ! The element number
+
+   call compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_variables,length_state_variable_array, &
+                                                       n_state_vars_per_intpt,vol_averaged_stress)
+    if (TIME<1.d-12) then
+      if (n_state_vars_per_intpt<6) then
+        write(user_print_units(1),'(A)') 'VARIABLES = e11,s11'
+      else
+         write(user_print_units(1),'(A)') 'VARIABLES = TIME,e11,e22,e33,e12,e13,e23,s11,s22,s33,s12,s13,s23'
+      endif
+    endif
+
+   if (n_state_vars_per_intpt<6) then
+      write(user_print_units(1),'(2(1x,D12.5))') vol_averaged_strain(1),vol_averaged_stress(1)
+   else
+      vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
+      write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_state_variables(1:6)
+   endif
 !
 !
     !write(*,*) 'debug'
-    call compute_J_integral(J_integral_value)
-    write(user_print_units(1),'(A)') 'J_integral = '
-    write(user_print_units(1),'(D12.5)') J_integral_value
+!    call compute_J_integral(J_integral_value)
+!    write(user_print_units(1),'(A)') 'J_integral = '
+!    write(user_print_units(1),'(D12.5)') J_integral_value
 end subroutine user_print
 
 subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_averaged_state_vars,length_output_array, &
-                                                                                                       n_state_vars_per_intpt)
+                                                                       n_state_vars_per_intpt,vol_averaged_stress)
     use Types
     use ParamIO
     use Mesh, only : extract_element_data
@@ -75,6 +74,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     use Element_Utilities, only : N => shape_functions_3D
     use Element_Utilities, only:  dNdxi => shape_function_derivatives_3D
     use Element_Utilities, only:  dNdx => shape_function_spatial_derivatives_3D
+    use Element_Utilities, only: dNbdx => vol_avg_shape_function_derivatives_3D
     use Element_Utilities, only : xi => integrationpoints_3D, w => integrationweights_3D
     use Element_Utilities, only : dxdxi => jacobian_3D
     use Element_Utilities, only : initialize_integration_points
@@ -86,6 +86,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     integer, intent ( in )      :: length_output_array
 
     real (prec), intent( out )  ::  vol_averaged_strain(6)
+    real (prec), intent( out )  ::  vol_averaged_stress(6)
     real (prec), intent( out )  ::  vol_averaged_state_vars(length_output_array)
 
     integer, intent( out )      :: n_state_vars_per_intpt
@@ -119,6 +120,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     real (prec)  ::  strain(6)                         ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
     real (prec)  ::  dstrain(6)                        ! Strain increment vector
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
+    real (prec)  ::  new_strain(6),dev_strain(6),vol_strain,epse,sige,vel,eps0,sig0,nn,KK,stress(6)
     !
     !  Allocate memory to store element data.
     !  The variables specifying the size of the arrays are stored in the module user_subroutine_storage
@@ -169,6 +171,28 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
        write(IOW,*) ' but the array storing averaged state variables has length ',size(vol_averaged_state_vars)
        stop
     endif
+
+    sig0 = element_properties(1)
+    eps0 = element_properties(2)
+    nn = element_properties(3)
+    KK = element_properties(4)
+
+    Vel = 0.d0
+    dNbdx = 0.d0
+
+    if ( element_identifier == 1 .or. element_identifier == 10001) then ! B-bar element
+        do kint = 1, n_points
+            call calculate_shapefunctions(xi(1:3,kint),n_nodes,N,dNdxi)
+            dxdxi = matmul(x(1:3,1:n_nodes),dNdxi(1:n_nodes,1:3))
+            call invert_small(dxdxi,dxidx,determinant)
+            dNdx(1:n_nodes,1:3) = matmul(dNdxi(1:n_nodes,1:3),dxidx)
+
+            dNbdx(1:n_nodes,1:3) = dNbdx(1:n_nodes,1:3) + dNdx(1:n_nodes,1:3) * w(kint) * determinant
+            Vel = Vel + w(kint) * determinant
+        end do
+        dNbdx(1:n_nodes,1:3) = dNbdx(1:n_nodes,1:3) / Vel
+    end if
+
     !     --  Loop over integration points
     do kint = 1, n_points
         call calculate_shapefunctions(xi(1:3,kint),n_nodes,N,dNdxi)
@@ -188,9 +212,39 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
         B(6,2:3*n_nodes-1:3) = dNdx(1:n_nodes,3)
         B(6,3:3*n_nodes:3)   = dNdx(1:n_nodes,2)
 
-        strain = matmul(B(1:6,1:3*n_nodes),dof_total(1:3*n_nodes))
-        dstrain = matmul(B(1:6,1:3*n_nodes),dof_increment(1:3*n_nodes))
+        if ( element_identifier == 1 .or. element_identifier == 10001) then ! B-bar element
+        B(1,1:3*n_nodes-2:3) = dNdx(1:n_nodes,1)+1/3*(dNbdx(1:n_nodes,1)-dNdx(1:n_nodes,1))
+        B(1,2:3*n_nodes-1:3)=1/3*(dNbdx(1:n_nodes,2)-dNdx(1:n_nodes,2))
+        B(1,3:3*n_nodes:3)=1/3*(dNbdx(1:n_nodes,3)-dNdx(1:n_nodes,3))
+        B(2,1:3*n_nodes-2:3)=1/3*(dNbdx(1:n_nodes,1) -dNdx(1:n_nodes,1))
+        B(2,2:3*n_nodes-1:3) = dNdx(1:n_nodes,2)+1/3*(dNbdx(1:n_nodes,2) -dNdx(1:n_nodes,2))
+        B(2,3:3*n_nodes:3)=1/3*(dNbdx(1:n_nodes,3) -dNdx(1:n_nodes,3))
+        B(3,1:3*n_nodes-2:3)=1/3*(dNbdx(1:n_nodes,1) -dNdx(1:n_nodes,1))
+        B(3,2:3*n_nodes-1:3)=1/3*(dNbdx(1:n_nodes,2) -dNdx(1:n_nodes,2))
+        B(3,3:3*n_nodes:3)   = dNdx(1:n_nodes,3)+1/3*(dNbdx(1:n_nodes,3) -dNdx(1:n_nodes,3))
+        end if
+        strain = matmul(B,dof_total)
+        dstrain = matmul(B,dof_increment)
+        new_strain(1:6) = strain(1:6) + dstrain(1:6)
+        vol_strain = (new_strain(1)+new_strain(2)+new_strain(3))/3.d0
+        dev_strain(1:3) = new_strain(1:3) - vol_strain
+        dev_strain(4:6) = new_strain(4:6)/2.d0
+        epse = dsqrt(2.d0/3.d0*(dev_strain(1)**2+dev_strain(2)**2+dev_strain(3)**2+2*dev_strain(4)**2+&
+                    2*dev_strain(5)**2+2*dev_strain(6)**2))
+        if (epse < eps0) then
+            sige = sig0 * (dsqrt((1.d0+nn**2)/(nn-1.d0)**2 - (nn/(nn-1.d0)-epse/eps0)**2) - 1.d0/(nn-1.d0))
+        else
+            sige = sig0 * (epse / eps0) ** (1.d0/nn)
+        end if
+        if (epse < 1.d-012) then ! zero dev strain and zero dev stress
+            stress(1:3) = KK * vol_strain * 3.d0
+            stress(4:6) = 0
+        else
+            stress(1:3) = 2.d0/3.d0 * sige / epse * dev_strain(1:3) + KK * vol_strain * 3.d0
+            stress(4:6) = 2.d0/3.d0 * sige / epse * dev_strain(4:6)
+        end if
 
+        vol_averaged_stress(1:6) = vol_averaged_stress(1:6) + (stress(1:6))*w(kint)*determinant
         vol_averaged_strain(1:6) = vol_averaged_strain(1:6) + (strain(1:6)+dstrain(1:6))*w(kint)*determinant
 
         if (n_state_vars_per_intpt>0) then
@@ -203,6 +257,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     end do
 
     vol_averaged_strain = vol_averaged_strain/el_vol
+    vol_averaged_stress = vol_averaged_stress/el_vol
     vol_averaged_state_vars = vol_averaged_state_vars/el_vol
 
     deallocate(node_list)

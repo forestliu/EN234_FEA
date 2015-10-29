@@ -68,17 +68,17 @@ program en234fea
 
 !  Homework 5, small-strain B bar element - test with same files as in HW3, but
 !  try approaching incompressible limit by making Poisson's ratio close to 0.5
-  infil = './input_files/Linear_elastic_3d_b_bar.in'
-  open (unit = IOR, file = infil, status = 'old', ERR=500)
-  outfil = './Output_files/Linear_elastic_3d_b_bar.out'
-  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+!  infil = './input_files/Linear_elastic_3d_b_bar.in'
+!  open (unit = IOR, file = infil, status = 'old', ERR=500)
+!  outfil = './Output_files/Linear_elastic_3d_b_bar.out'
+!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
 !
 ! Homework 6: small-strain Armstrong-Frederick kinematic hardening model
-!  infil = './input_files/cyclic_plastic_3d.in'
-!  open (unit = IOR, file = infil, status = 'old', ERR=500)
-!  outfil = './Output_files/cyclic_plastic_3d.out'
-!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+  infil = './input_files/Linear_elastic_3d_b_bar_hypoelastic.in'
+  open (unit = IOR, file = infil, status = 'old', ERR=500)
+  outfil = './Output_files/Linear_elastic_3d_b_bar_hypoelastic.out'
+  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
 ! Homework 7, stretch a hyperelastic bar, check stiffness.
 !  infil = './input_files/Hyperelastic_bar_stretch.in'
