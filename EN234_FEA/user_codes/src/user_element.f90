@@ -48,7 +48,7 @@ subroutine user_element_static(lmn, element_identifier, n_nodes, node_property_l
     !     Element stiffness routine
 
     
-    element_stiffness = 0.d0
+    element_stiffness = 0.0d0
     element_residual = 0.d0
 
     fail = .false.

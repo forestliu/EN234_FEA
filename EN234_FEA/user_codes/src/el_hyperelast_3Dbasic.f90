@@ -189,7 +189,8 @@ subroutine el_hyperelast_3dbasic(lmn, element_identifier, n_nodes, node_property
 !        JJ = dsqrt(BB(1,1)*(BB(2,2)*BB(3,3)-BB(2,3)**2)-BB(1,2)*(BB(2,1)*BB(3,3)-BB(2,3)*BB(3,1)) &
 !                        +BB(1,3)*(BB(2,1)*BB(3,2)-BB(3,1)*BB(2,2)))
                         !WRITE(*,*) 'JJ'
-        !write(*,*) 'J=',JJ
+        write(*,*) 'J=',JJ
+
         Iv = 0.d0
         Iv = (/ 1.d0,1.d0,1.d0,0.d0,0.d0,0.d0 /)
         Iv_dyadic_invBv = 0.d0
