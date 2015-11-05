@@ -123,8 +123,8 @@
 
    PRINT INITIAL MESH, initial_mesh.dat
 
-%   TIME, VALUE, 0.d0        % Use this to specify the initial time
-%   TIME, INCREMENT, 0.01d0  % Use this to specify a time increment (often needed for check stiffness)
+   TIME, VALUE, 0.d0        % Use this to specify the initial time
+   TIME, INCREMENT, 0.01d0  % Use this to specify a time increment (often needed for check stiffness)
 
 %   The CHECK STIFFNESS key tests the element subroutine to ensure that
 %   the residual force vector is consistent with the stiffness
@@ -140,7 +140,7 @@
      STATIC STEP
 
 
-          INITIAL TIME STEP, 1.d0        % Test of a comment here
+          INITIAL TIME STEP, 1.0d0        % Test of a comment here
           MAX TIME STEP, 1.d0
           MIN TIME STEP, 0.001d0
           MAX NUMBER OF STEPS, 11
@@ -167,7 +167,7 @@
 %         The projected states are controlled by the user - see subroutine elstat in file usrelem.f90
 %         Also (for this example file) subroutine state_linelast_3dbasic in file el_linelast_3Dbasic.f90
 %         In this example the states are the stresses sxx,syy,szz,sxy,sxz,syz
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/contourplots.dat
 %            DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12,S13,S23
             DISPLACED MESH

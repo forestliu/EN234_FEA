@@ -75,16 +75,16 @@ program en234fea
 
 !
 ! Homework 6: small-strain Armstrong-Frederick kinematic hardening model
-  infil = './input_files/Linear_elastic_3d_b_bar_hypoelastic.in'
-  open (unit = IOR, file = infil, status = 'old', ERR=500)
-  outfil = './Output_files/Linear_elastic_3d_b_bar_hypoelastic.out'
-  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+!  infil = './input_files/Linear_elastic_3d_b_bar_hypoelastic.in'
+!  open (unit = IOR, file = infil, status = 'old', ERR=500)
+!  outfil = './Output_files/Linear_elastic_3d_b_bar_hypoelastic.out'
+!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
 ! Homework 7, stretch a hyperelastic bar, check stiffness.
-!  infil = './input_files/Hyperelastic_bar_stretch.in'
-!  open (unit = IOR, file = infil, status = 'old', ERR=500)
-!  outfil = './Output_files/hyperelastic_bar_stretch.out'
-!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+  infil = './input_files/Hyperelastic_bar_stretch.in'
+  open (unit = IOR, file = infil, status = 'old', ERR=500)
+  outfil = './Output_files/hyperelastic_bar_stretch.out'
+  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 !!
 !!  Homework 7, stretch and rotate a hyperelastic bar
 !  infil = './input_files/Hyperelastic_stretch_rotate.in'
@@ -113,14 +113,20 @@ program en234fea
 !  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
   call read_input_file
-  
+  write(*,*) 'read input file finished'
    if (printinitialmesh) call print_initial_mesh
 
-  if (checkstiffness) call check_stiffness(checkstiffness_elementno)
-
+  if (checkstiffness)  then
+    call check_stiffness(checkstiffness_elementno)
+    write(*,*) 'checking stiffness finished'
+  end if
+!  return
   if (staticstep) then
+      write(*,*) 'compute static step started'
       call compute_static_step
+      write(*,*) 'compute static step finished'
       if (checkstiffness) call check_stiffness(checkstiffness_elementno)
+!      write(*,*) 'check stiffness finished'
   endif
   
   if (explicitdynamicstep) call explicit_dynamic_step
