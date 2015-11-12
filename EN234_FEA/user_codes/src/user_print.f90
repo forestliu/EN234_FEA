@@ -29,7 +29,7 @@ subroutine user_print(n_steps)
 !  The first six state variables (which are usually the stresses) are printed along with the strains.
 !
 !
-
+   write(*,*) 'user print is called!'
    allocate(vol_averaged_state_variables(length_state_variable_array), stat=status)
 
    if (status/=0) then
