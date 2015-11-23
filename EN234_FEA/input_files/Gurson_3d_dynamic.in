@@ -37,13 +37,13 @@
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier
 
       ELEMENTS
-        PARAMETERS, 8, 80, 3001
+        PARAMETERS, 8, 800, 3001
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
         PROPERTIES
-         1000.d0, 0.3d0   % E, nu
-         0.8d0, 10.01d0, 5.d0  % Y, edot0, m
+         1000.d0, 0.33d0   % E, nu
+         0.8d0, 0.01d0, 5.d0  % Y, edot0, m
          1.25d0, 1.d0, 1.25d0  % q1, q2, q3
-         0.05d0, 0.1d0, 0.05d0  % fn, sn, en
+         0.05d0, 0.05d0, 0.05d0  % fn, sn, en
          0.15d0, 0.25d0  % fc, ff
         END PROPERTIES
 %     Define mass density (for explicity dynamics only)
@@ -116,7 +116,7 @@
 %        All parameters are required
 
           TIME STEP, 0.01
-          NUMBER OF STEPS, 200
+          NUMBER OF STEPS, 100
           STATE PRINT STEPS, 10
           USER PRINT STEPS, 210
 
@@ -127,15 +127,27 @@
 %         The projected states are controlled by the user - see subroutine elstat in file usrelem.f90
 %         Also (for this example file) subroutine state_linelast_3dbasic in file el_linelast_3Dbasic.f90
 %         In this example the states are the stresses sxx,syy,szz,sxy,sxz,syz
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/contourplots.dat
             DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12,S13,S23,Vf
             DISPLACED MESH
             DISPLACEMENT SCALE FACTOR, 1.d0
          END PRINT STATE
+%        The lines below are just examples - no code exists to use them.
+
+USER PRINT FILES
+%          List file names to contain the output. Fortran unit numbers are provided to each file in the user subroutine
+filename1.dat
+%           filename2.dat
+END USER PRINT FILES
+USER PRINT PARAMETERS
+%            list of parameters to be passed to the subroutine
+1.d0, 6.d0
+4
+END USER print PARAMETERS
 
 
         END EXPLICIT DYNAMIC STEP
-         
+
 
    STOP

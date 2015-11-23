@@ -51,6 +51,7 @@ subroutine user_print(n_steps)
     endif
 
    if (n_state_vars_per_intpt<6) then
+      write(*,*) 'usr print'
       write(user_print_units(1),'(2(1x,D12.5))') vol_averaged_strain(1),vol_averaged_stress(1)
    else
       vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
@@ -110,7 +111,7 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     real( prec ), allocatable   :: dof_increment(:)                        ! DOF increment, using usual element storage convention
     real( prec ), allocatable   :: dof_total(:)                            ! accumulated DOF, using usual element storage convention
 
-    integer      :: n_points,kint,i
+    integer      :: n_points,kint,i,j,a
     integer      :: n_coords, n_dof
     integer      :: iof
     integer      :: status
@@ -120,7 +121,15 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
     real (prec)  ::  strain(6)                         ! Strain vector contains [e11, e22, e33, 2e12, 2e13, 2e23]
     real (prec)  ::  dstrain(6)                        ! Strain increment vector
     real (prec)  ::  dxidx(3,3), determinant           ! Jacobian inverse and determinant
-    real (prec)  ::  new_strain(6),dev_strain(6),vol_strain,epse,sige,vel,eps0,sig0,nn,KK,stress(6)
+    real (prec)  ::  new_strain(6),dev_strain(6),vol_strain,stress(6)
+    real (prec)  ::  E,xnu,Y,dedt0,m,q1,q2,q3,fn,en,sn,fc,ff              ! Material properties
+    real (prec)  ::  eta,deta,JJ,F(3,3),dF(3,3),F_mid(3,3),dL(3,3),dLb(3,3)
+    real (prec)  ::  dNdy(length_node_array,3),dNbdy(length_node_array,3),dR(3,3),dW(3,3),deps(3,3),I3(3,3)
+    real (prec)  ::  dof_new(length_dof_array),inv_F(3,3),inv_F_mid(3,3),temp,temp3(3,3)
+    real (prec)  ::  s0(6),eps_b_mat0,Vf0,s_new(3,3),kstress(6)
+    real (prec)  ::  eps_b_mat,Vf
+
+
     !
     !  Allocate memory to store element data.
     !  The variables specifying the size of the arrays are stored in the module user_subroutine_storage
@@ -172,77 +181,118 @@ subroutine compute_element_volume_average_3D(lmn,vol_averaged_strain,vol_average
        stop
     endif
 
-    sig0 = element_properties(1)
-    eps0 = element_properties(2)
-    nn = element_properties(3)
-    KK = element_properties(4)
-
-    Vel = 0.d0
-    dNbdx = 0.d0
-
-    if ( element_identifier == 1 .or. element_identifier == 10001) then ! B-bar element
-        do kint = 1, n_points
-            call calculate_shapefunctions(xi(1:3,kint),n_nodes,N,dNdxi)
-            dxdxi = matmul(x(1:3,1:n_nodes),dNdxi(1:n_nodes,1:3))
-            call invert_small(dxdxi,dxidx,determinant)
-            dNdx(1:n_nodes,1:3) = matmul(dNdxi(1:n_nodes,1:3),dxidx)
-
-            dNbdx(1:n_nodes,1:3) = dNbdx(1:n_nodes,1:3) + dNdx(1:n_nodes,1:3) * w(kint) * determinant
-            Vel = Vel + w(kint) * determinant
-        end do
-        dNbdx(1:n_nodes,1:3) = dNbdx(1:n_nodes,1:3) / Vel
-    end if
-
+    E = element_properties(1)
+    xnu = element_properties(2)
+    Y = element_properties(3)
+    dedt0 = element_properties(4)
+    m = element_properties(5)
+    q1 = element_properties(6)
+    q2 = element_properties(7)
+    q3 = element_properties(8)
+    fn = element_properties(9)
+    sn = element_properties(10)
+    en = element_properties(11)
+    fc = element_properties(12)
+    ff = element_properties(13)
+    eta = 0.d0
+    deta = 0.d0
+    dNbdy = 0.d0
     !     --  Loop over integration points
     do kint = 1, n_points
         call calculate_shapefunctions(xi(1:3,kint),n_nodes,N,dNdxi)
         dxdxi = matmul(x(1:3,1:n_nodes),dNdxi(1:n_nodes,1:3))
         call invert_small(dxdxi,dxidx,determinant)
-
-        iof = n_state_vars_per_intpt*(kint-1)+1
         dNdx(1:n_nodes,1:3) = matmul(dNdxi(1:n_nodes,1:3),dxidx)
-        B = 0.d0
-        B(1,1:3*n_nodes-2:3) = dNdx(1:n_nodes,1)
-        B(2,2:3*n_nodes-1:3) = dNdx(1:n_nodes,2)
-        B(3,3:3*n_nodes:3)   = dNdx(1:n_nodes,3)
-        B(4,1:3*n_nodes-2:3) = dNdx(1:n_nodes,2)
-        B(4,2:3*n_nodes-1:3) = dNdx(1:n_nodes,1)
-        B(5,1:3*n_nodes-2:3) = dNdx(1:n_nodes,3)
-        B(5,3:3*n_nodes:3)   = dNdx(1:n_nodes,1)
-        B(6,2:3*n_nodes-1:3) = dNdx(1:n_nodes,3)
-        B(6,3:3*n_nodes:3)   = dNdx(1:n_nodes,2)
 
-        if ( element_identifier == 1 .or. element_identifier == 10001) then ! B-bar element
-        B(1,1:3*n_nodes-2:3) = dNdx(1:n_nodes,1)+1/3*(dNbdx(1:n_nodes,1)-dNdx(1:n_nodes,1))
-        B(1,2:3*n_nodes-1:3)=1/3*(dNbdx(1:n_nodes,2)-dNdx(1:n_nodes,2))
-        B(1,3:3*n_nodes:3)=1/3*(dNbdx(1:n_nodes,3)-dNdx(1:n_nodes,3))
-        B(2,1:3*n_nodes-2:3)=1/3*(dNbdx(1:n_nodes,1) -dNdx(1:n_nodes,1))
-        B(2,2:3*n_nodes-1:3) = dNdx(1:n_nodes,2)+1/3*(dNbdx(1:n_nodes,2) -dNdx(1:n_nodes,2))
-        B(2,3:3*n_nodes:3)=1/3*(dNbdx(1:n_nodes,3) -dNdx(1:n_nodes,3))
-        B(3,1:3*n_nodes-2:3)=1/3*(dNbdx(1:n_nodes,1) -dNdx(1:n_nodes,1))
-        B(3,2:3*n_nodes-1:3)=1/3*(dNbdx(1:n_nodes,2) -dNdx(1:n_nodes,2))
-        B(3,3:3*n_nodes:3)   = dNdx(1:n_nodes,3)+1/3*(dNbdx(1:n_nodes,3) -dNdx(1:n_nodes,3))
-        end if
-        strain = matmul(B,dof_total)
-        dstrain = matmul(B,dof_increment)
-        new_strain(1:6) = strain(1:6) + dstrain(1:6)
-        vol_strain = (new_strain(1)+new_strain(2)+new_strain(3))/3.d0
-        dev_strain(1:3) = new_strain(1:3) - vol_strain
-        dev_strain(4:6) = new_strain(4:6)/2.d0
-        epse = dsqrt(2.d0/3.d0*(dev_strain(1)**2+dev_strain(2)**2+dev_strain(3)**2+2*dev_strain(4)**2+&
-                    2*dev_strain(5)**2+2*dev_strain(6)**2))
-        if (epse < eps0) then
-            sige = sig0 * (dsqrt((1.d0+nn**2)/(nn-1.d0)**2 - (nn/(nn-1.d0)-epse/eps0)**2) - 1.d0/(nn-1.d0))
-        else
-            sige = sig0 * (epse / eps0) ** (1.d0/nn)
-        end if
-        if (epse < 1.d-012) then ! zero dev strain and zero dev stress
-            stress(1:3) = KK * vol_strain * 3.d0
-            stress(4:6) = 0
-        else
-            stress(1:3) = 2.d0/3.d0 * sige / epse * dev_strain(1:3) + KK * vol_strain * 3.d0
-            stress(4:6) = 2.d0/3.d0 * sige / epse * dev_strain(4:6)
-        end if
+        !dof_new = 0.d0
+        !dof_new = dof_total + dof_increment
+        !F = 0.d0
+        !F(1,1) = 1.d0
+        !F(2,2) = 1.d0
+        !F(3,3) = 1.d0
+        dF = 0.d0
+        F_mid = 0.d0
+        F_mid(1,1) = 1.d0
+        F_mid(2,2) = 1.d0
+        F_mid(3,3) = 1.d0
+        do i = 1,3 ! Compute deformation gradient tensor F
+            do j = 1,3
+                do a= 1,n_nodes
+                    !F(i,j) = F(i,j) +  dof_new(3*(a-1)+i)*dNdx(a,j)
+                    dF(i,j) = dF(i,j) +  dof_increment(3*(a-1)+i)*dNdx(a,j)
+                    F_mid(i,j) = F_mid(i,j) + (dof_total(3*(a-1)+i) + &
+                            0.5d0*dof_increment(3*(a-1)+i))*dNdx(a,j)
+                end do
+            end do
+        end do
+
+        dNdy = 0.d0
+        !call invert_small(F,inv_F,JJ)
+        call invert_small(F_mid,inv_F_mid,JJ)
+        dNdy(1:n_nodes,1:3) = matmul(dNdx(1:n_nodes,1:3),inv_F_mid(1:3,1:3))
+        dL(1:3,1:3) = matmul(dF(1:3,1:3),inv_F_mid(1:3,1:3))
+
+        ! compute various volume integration
+        eta = eta + w(kint) * determinant * JJ
+        deta = deta + w(kint) * determinant * JJ * (dL(1,1) + dL(2,2) + dL(3,3))
+        dNbdy(1:n_nodes,1:3) = dNbdy(1:n_nodes,1:3) + dNdy(1:n_nodes,1:3) * w(kint) * JJ * determinant
+    end do
+    deta = deta / eta
+    dNbdy(1:n_nodes,1:3) = dNbdy(1:n_nodes,1:3) / eta
+
+    I3 = 0.D0
+    I3(1,1) = 1.d0
+    I3(2,2) = 1.d0
+    I3(3,3) = 1.d0
+    !     --  Loop over integration points
+    do kint = 1, n_points
+        call calculate_shapefunctions(xi(1:3,kint),n_nodes,N,dNdxi)
+        dxdxi = matmul(x(1:3,1:n_nodes),dNdxi(1:n_nodes,1:3))
+        call invert_small(dxdxi,dxidx,determinant)
+        dNdx(1:n_nodes,1:3) = matmul(dNdxi(1:n_nodes,1:3),dxidx)
+
+        dF = 0.d0
+        F_mid = 0.d0
+        F_mid(1,1) = 1.d0
+        F_mid(2,2) = 1.d0
+        F_mid(3,3) = 1.d0
+        do i = 1,3 ! Compute deformation gradient tensor F
+            do j = 1,3
+                do a= 1,n_nodes
+                    !F(i,j) = F(i,j) +  dof_new(3*(a-1)+i)*dNdx(a,j)
+                    dF(i,j) = dF(i,j) +  dof_increment(3*(a-1)+i)*dNdx(a,j)
+                    F_mid(i,j) = F_mid(i,j) + (dof_total(3*(a-1)+i) + &
+                            0.5d0*dof_increment(3*(a-1)+i))*dNdx(a,j)
+                end do
+            end do
+        end do
+
+        call invert_small(F_mid,inv_F_mid,JJ)
+        dNdy = 0.d0
+        dNdy(1:n_nodes,1:3) = matmul(dNdx(1:n_nodes,1:3),inv_F_mid(1:3,1:3))
+        dLb(1:3,1:3) = matmul(dF(1:3,1:3),inv_F_mid(1:3,1:3))
+        temp = dLb(1,1) + dLb(2,2) + dLb(3,3)
+        dLb(1,1) = dLb(1,1) + (deta-temp)/3.d0
+        dLb(2,2) = dLb(2,2) + (deta-temp)/3.d0
+        dLb(3,3) = dLb(3,3) + (deta-temp)/3.d0
+
+        deps = (dLb(1:3,1:3) + transpose(dLb(1:3,1:3)))/2.d0
+        dW = (dLb(1:3,1:3) - transpose(dLb(1:3,1:3)))/2.d0
+        call invert_small(I3(1:3,1:3)-dW(1:3,1:3)/2.d0,temp3(1:3,1:3),temp)
+        dR = matmul(temp3(1:3,1:3), I3(1:3,1:3) + dW(1:3,1:3)/2.d0)
+
+        s0(1:6) = initial_state_variables(8*(kint-1)+1:8*(kint-1)+6)
+        eps_b_mat0 = initial_state_variables(8*(kint-1)+7)
+        Vf0 = initial_state_variables(8*kint)
+!        if (.not. isnan(s0(1))) then
+!        write(*,*) 's0 =',s0
+!        end if
+        call get_stress_gurson(kstress(1:6),eps_b_mat,Vf,deps(1:3,1:3),s0(1:6),eps_b_mat0,Vf0, &
+                                dR(1:3,1:3),E,xnu,Y, dedt0,m,q1,q2,q3,fn,en,sn,fc,ff)
+        updated_state_variables(8*(kint-1)+1:8*(kint-1)+6) = kstress(1:6)
+        updated_state_variables(8*(kint-1)+7) = eps_b_mat
+        updated_state_variables(8*kint) = Vf
+        stress(1:6) = kstress(1:6) / JJ
 
         vol_averaged_stress(1:6) = vol_averaged_stress(1:6) + (stress(1:6))*w(kint)*determinant
         vol_averaged_strain(1:6) = vol_averaged_strain(1:6) + (strain(1:6)+dstrain(1:6))*w(kint)*determinant

@@ -100,17 +100,19 @@ program en234fea
 
 
 !!  Homework 8, solve the 2D Cahn-Hilliard equation
-  infil = './input_files/cahn_hilliard_2d_fine.in'
-  open (unit = IOR, file = infil, status = 'old', ERR=500)
-  outfil = './Output_files/cahn_hilliard_2d_fine.out'
-  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+!  infil = './input_files/cahn_hilliard_2d_fine.in'
+!  open (unit = IOR, file = infil, status = 'old', ERR=500)
+!  outfil = './Output_files/cahn_hilliard_2d_fine.out'
+!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
 
 !!  Homework 9, Dynamic fracture with explicit dynamics, finite strain Gurson model.
 !  infil = './input_files/notch_fracture_dynamic.in'
-!  open (unit = IOR, file = infil, status = 'old', ERR=500)
+  infil = './input_files/Gurson_3d_dynamic.in'
+  open (unit = IOR, file = infil, status = 'old', ERR=500)
 !  outfil = './Output_files/notch_fracture_dynamic.out'
-!  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
+  outfil = './Output_files/Gurson_3d_dynamic.out'
+  open (UNIT = IOW, FILE = outfil, STATUS = 'unknown', ERR=500)
 
   call read_input_file
   write(*,*) 'read input file finished'
@@ -129,7 +131,11 @@ program en234fea
 !      write(*,*) 'check stiffness finished'
   endif
   
-  if (explicitdynamicstep) call explicit_dynamic_step
+  if (explicitdynamicstep) then
+    write(*,*) 'computing dynamic step'
+    call explicit_dynamic_step
+    write(*,*) 'dynamic finished'
+  end if
   
   write(6,*) ' Program completed successfully '
 
